@@ -1,11 +1,337 @@
-<html>
+<!DOCTYPE html>
+<html lang="th">
 <head>
-<title>Test MyFirstWeb
-</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จรวดหลบอุกกาบาต (Rocket Dodge Game)</title>
+    
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        #game-container {
+            width: 320px; 
+            height: 500px;
+            border: 5px solid #333;
+            /* ⚠️ สำคัญ: ใส่ URL ภาพพื้นหลังอวกาศของคุณที่นี่ (เช่น 'images/space.jpg') */
+            background-image: url('YOUR_SPACE_BACKGROUND_IMAGE_URL'); 
+            background-size: cover; 
+            background-repeat: no-repeat;
+            background-position: center; 
+            position: relative; 
+            overflow: hidden; 
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* สไตล์สำหรับ Start Screen */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); /* พื้นหลังดำโปร่งแสง */
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 20; /* ให้อยู่เหนือทุกสิ่ง */
+        }
+
+        #start-screen h2 {
+            font-size: 2.2em;
+            margin-bottom: 5px;
+            color: #ffcc00; /* สีทองสำหรับชื่อเกม */
+        }
+        
+        #start-screen p {
+            margin: 5px 0 10px 0;
+            font-size: 1em;
+            color: #ccc;
+        }
+
+        #high-score-display {
+            font-size: 1.4em;
+            color: #72ef72; /* สีเขียวสว่างสำหรับคะแนนสูงสุด */
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        /* ซ่อนส่วนประกอบเกมหลักเมื่อเกมยังไม่เริ่ม */
+        #player, #obstacles-area {
+            display: none; 
+        }
+
+        #player {
+            width: 40px;
+            height: 40px;
+            background-color: transparent; 
+            position: absolute;
+            bottom: 10px; 
+            left: 140px; 
+            border-radius: 0; 
+            transition: left 0.05s linear; 
+            
+            display: flex; 
+            justify-content: center;
+            align-items: center;
+            font-size: 30px; 
+            z-index: 5; 
+        }
+
+        /* ใช้ Emoji เป็นรูปจรวด */
+        #player::after {
+            content: '🚀'; 
+        }
+
+        .obstacle {
+            width: 40px; 
+            height: 40px;
+            background-color: transparent; 
+            position: absolute;
+            top: -40px; 
+            border-radius: 50%; 
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px; 
+            z-index: 4; 
+        }
+        
+        /* ใช้ Emoji เป็นรูปอุกกาบาต */
+        .obstacle::after {
+            content: '☄️'; 
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 1.2em;
+            color: #fff; 
+            font-weight: bold;
+            z-index: 10; 
+        }
+
+        .game-button { 
+            padding: 12px 25px;
+            font-size: 1.5em;
+            cursor: pointer;
+            background-color: #28a745; 
+            color: white;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px #1e7e34;
+            transition: background-color 0.2s;
+            margin-top: 20px;
+        }
+
+        .game-button:active {
+            box-shadow: 0 2px #1e7e34;
+            transform: translateY(2px);
+        }
+    </style>
 </head>
 <body>
-Hellow World!
+    <div id="game-container">
+        
+        <div id="start-screen">
+            <h2>จรวดหลบอุกกาบาต 🚀</h2>
+            <p>ภารกิจ: บินให้รอดจากพายุอุกกาบาต!</p>
+            
+            <div id="high-score-display">คะแนนสูงสุด: 0</div>
+            
+            <h3>วิธีเล่น:</h3>
+            <p>ใช้ปุ่ม **ลูกศรซ้าย/ขวา** หรือ **A/D** เพื่อควบคุมจรวด</p>
+            <button id="startButton" class="game-button">เริ่มภารกิจ</button>
+        </div>
+
+        <div id="score">คะแนน: 0</div>
+        <div id="player"></div>
+        <div id="obstacles-area"></div> 
+    </div>
+    
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const player = document.getElementById('player');
+        const startButton = document.getElementById('startButton');
+        const scoreDisplay = document.getElementById('score');
+        const obstaclesArea = document.getElementById('obstacles-area');
+        const startScreen = document.getElementById('start-screen');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        
+        // ตัวแปรสถานะเกม
+        let gameInterval;
+        let obstacleCreationInterval;
+        let score = 0;
+        let isGameOver = true;
+        
+        // ตัวแปรการตั้งค่าเกม
+        const playerSpeed = 15; 
+        let obstacleSpeed = 2; // ความเร็วเริ่มต้น
+        const gameTick = 10; // อัปเดตทุก 10 มิลลิวินาที
+        const initialObstacleRate = 1000; // สร้างอุกกาบาตทุก 1 วินาที
+        const highScoreKey = 'rocketDodgeHighScore'; // คีย์สำหรับ Local Storage
+
+        // --- ระบบ High Score ---
+        function loadHighScore() {
+            // โหลดค่าจาก Local Storage ถ้าไม่มี ให้เป็น 0
+            const storedScore = localStorage.getItem(highScoreKey);
+            return storedScore ? parseInt(storedScore) : 0;
+        }
+
+        function saveHighScore(newScore) {
+            localStorage.setItem(highScoreKey, newScore);
+        }
+
+        function updateHighScoreDisplay() {
+            highScoreDisplay.textContent = `คะแนนสูงสุด: ${loadHighScore()}`;
+        }
+        // -------------------------
+
+        // --- การควบคุมผู้เล่น ---
+        function handleKeyDown(event) {
+            if (isGameOver) return; 
+
+            let playerLeft = parseInt(window.getComputedStyle(player).getPropertyValue('left'));
+            const gameWidth = gameContainer.clientWidth;
+            const playerOffsetWidth = player.offsetWidth; 
+
+            if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
+                if (playerLeft > 0) {
+                    player.style.left = (playerLeft - playerSpeed) + 'px';
+                }
+            } else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
+                if (playerLeft < (gameWidth - playerOffsetWidth)) {
+                    player.style.left = (playerLeft + playerSpeed) + 'px';
+                }
+            }
+        }
+        // -------------------------
+
+        // --- การจัดการอุกกาบาต ---
+        function createObstacle() {
+            const obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle');
+            
+            const gameWidth = gameContainer.clientWidth;
+            const obstacleWidth = 40; 
+            const minLeft = 0;
+            const maxLeft = gameWidth - obstacleWidth; 
+            const randomLeft = Math.floor(Math.random() * (maxLeft - minLeft + 1)) + minLeft;
+
+            obstacle.style.left = randomLeft + 'px';
+            obstaclesArea.appendChild(obstacle);
+        }
+
+        function updateGame() {
+            const obstacles = document.querySelectorAll('.obstacle');
+            const playerRect = player.getBoundingClientRect();
+
+            obstacles.forEach(obstacle => {
+                let obstacleTop = parseInt(window.getComputedStyle(obstacle).getPropertyValue('top'));
+                
+                // เคลื่อนที่อุกกาบาตลง
+                obstacle.style.top = (obstacleTop + obstacleSpeed) + 'px';
+
+                const obstacleRect = obstacle.getBoundingClientRect();
+
+                // ตรวจจับการชน (Collision Detection)
+                if (
+                    playerRect.left < obstacleRect.right &&
+                    playerRect.right > obstacleRect.left &&
+                    playerRect.top < obstacleRect.bottom &&
+                    playerRect.bottom > obstacleRect.top
+                ) {
+                    gameOver();
+                }
+
+                // หากอุกกาบาตหลุดออกนอกจอ
+                if (obstacleTop > gameContainer.clientHeight) {
+                    obstacle.remove();
+                    score++;
+                    scoreDisplay.textContent = `คะแนน: ${score}`;
+                    
+                    // เพิ่มความเร็วทุก 10 คะแนน
+                    if (score % 10 === 0 && obstacleSpeed < 5) {
+                        obstacleSpeed += 0.5; 
+                    }
+                }
+            });
+        }
+        // -------------------------
+
+
+        // --- สถานะเกม ---
+        function startGame() {
+            if (!isGameOver) return; 
+
+            // ซ่อนหน้าจอต้อนรับและแสดงส่วนประกอบเกมหลัก
+            startScreen.style.display = 'none';
+            player.style.display = 'flex'; 
+            obstaclesArea.style.display = 'block'; 
+            
+            // รีเซ็ตสถานะเกม
+            isGameOver = false;
+            score = 0;
+            obstacleSpeed = 2; 
+            scoreDisplay.textContent = 'คะแนน: 0';
+            obstaclesArea.innerHTML = ''; // ล้างอุกกาบาตเก่า
+            
+            // ตั้งตำแหน่งเริ่มต้นจรวดให้อยู่ตรงกลาง
+            player.style.left = (gameContainer.clientWidth / 2 - player.offsetWidth / 2) + 'px'; 
+
+            // เริ่มลูปเกมและการสร้างอุกกาบาต
+            gameInterval = setInterval(updateGame, gameTick); 
+            obstacleCreationInterval = setInterval(createObstacle, initialObstacleRate); 
+        }
+
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(gameInterval);
+            clearInterval(obstacleCreationInterval);
+            
+            // ตรวจสอบและบันทึกคะแนนสูงสุดใหม่
+            const currentHighScore = loadHighScore();
+            if (score > currentHighScore) {
+                saveHighScore(score);
+                alert(`สถิติใหม่! ${score} คะแนน!`);
+            } else {
+                 alert(`ภารกิจล้มเหลว! คุณทำคะแนนได้: ${score} คะแนน`);
+            }
+            
+            // อัปเดตการแสดงผล High Score
+            updateHighScoreDisplay();
+
+            // แสดงหน้าจอเริ่มต้นอีกครั้งเมื่อเกมจบ
+            startScreen.style.display = 'flex';
+            startButton.textContent = 'เริ่มภารกิจใหม่';
+            
+            // ซ่อนส่วนประกอบเกมเมื่อจบเกม
+            player.style.display = 'none'; 
+            obstaclesArea.style.display = 'none';
+        }
+        // -----------------
+
+        // --- การตั้งค่าเริ่มต้น (เมื่อหน้าเว็บโหลด) ---
+        startButton.addEventListener('click', startGame);
+        window.addEventListener('keydown', handleKeyDown);
+
+        // โหลดคะแนนสูงสุดเมื่อหน้าเว็บโหลดครั้งแรก
+        updateHighScoreDisplay();
+        // ---------------------------------------------
+    </script>
 </body>
 </html>
-Narawit thongcamsuk  
-Chonlathon niroram
